@@ -1,0 +1,76 @@
+name: Deploy to Test & DAST
+
+on:
+  workflow_dispatch:
+
+env:
+  BACKEND_IMAGE: ${{ secrets.ACR_REGISTRY }}/backend:${{ github.sha }}
+  FRONTEND_IMAGE: ${{ secrets.ACR_REGISTRY }}/frontend:${{ github.sha }}
+
+jobs:
+
+  deploy-backend:
+    name: Deploy Backend VM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH into Backend VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.BE_VM_PUBLIC_IP }}
+          username: ${{ secrets.BE_VM_USERNAME }}
+          password: ${{ secrets.BE_VM_PASSWORD }}
+          script: |
+            echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_REGISTRY }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+            cd /home/${{ secrets.BE_VM_USERNAME }}/app
+
+            export BACKEND_IMAGE=${{ env.BACKEND_IMAGE }}
+            docker pull $BACKEND_IMAGE
+
+            envsubst < docker-compose.backend.yml | docker compose -f - up -d --remove-orphans
+
+            docker image prune -f
+
+  deploy-frontend:
+    name: Deploy Frontend VM
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: SSH into Frontend VM
+        uses: appleboy/ssh-action@v1.0.3
+        with:
+          host: ${{ secrets.FE_VM_PUBLIC_IP }}
+          username: ${{ secrets.FE_VM_USERNAME }}
+          password: ${{ secrets.FE_VM_PASSWORD }}
+          script: |
+            echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ secrets.ACR_REGISTRY }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+            cd /home/${{ secrets.FE_VM_USERNAME }}/app
+
+            export FRONTEND_IMAGE=${{ env.FRONTEND_IMAGE }}
+            docker pull $FRONTEND_IMAGE
+
+            envsubst < docker-compose.frontend.yml | docker compose -f - up -d --remove-orphans
+
+            docker image prune -f
+
+  dast:
+    name: OWASP ZAP DAST Scan
+    needs:
+      - deploy-backend
+      - deploy-frontend
+    runs-on: ubuntu-latest
+    steps:
+      - name: Run ZAP Baseline Scan (Frontend URL)
+        uses: zaproxy/action-baseline@v0.7.0
+        with:
+          target: "http://${{ secrets.FE_VM_PUBLIC_IP }}"
+
+      - name: Upload DAST Report
+        uses: actions/upload-artifact@v4
+        with:
+          name: zap-report
+          path: '*.html'

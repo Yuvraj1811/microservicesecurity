@@ -14,14 +14,16 @@
     "dotenv": "^16.3.1",
     "react": "^18.2.0",
     "react-dom": "^18.2.0",
-    "react-scripts": "5.0.1",
+    "react-scripts": "^0.0.0",
     "web-vitals": "^2.1.4"
   },
   "scripts": {
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
-    "eject": "react-scripts eject"
+    "eject": "react-scripts eject",
+    "lint": "eslint . --ext .ts,.js,.tsx,.jsx",
+    "prepare": "husky"
   },
   "eslintConfig": {
     "extends": [
@@ -40,5 +42,20 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "description": "1. **Install Node.js and NPM on Ubuntu:**    - Make sure you have Node.js 16.x and NPM installed on your machine. If not, you can install them using the following commands:      ```bash      curl -s https://deb.nodesource.com/setup_16.x | sudo bash      sudo apt install nodejs -y      ```",
+  "main": "index.js",
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "devDependencies": {
+    "@eslint/js": "^9.39.1",
+    "eslint": "^8.57.1",
+    "eslint-plugin-react": "^7.37.5",
+    "globals": "^16.5.0",
+    "husky": "^9.1.7",
+    "lint-staged": "^16.2.7",
+    "prettier": "^3.7.4"
   }
 }

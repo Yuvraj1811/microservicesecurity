@@ -1,20 +1,37 @@
-# Use the official Python image as the base image
 FROM python:3.9
 
-# Set the working directory in the container
+# Set working directory
 WORKDIR /app
 
-# Copy the application files into the container
+# Set shell for pipefail (DL4006)
+SHELL ["/bin/bash", "-o", "pipefail", "-c"]
+
+# Copy app code first (for layer caching)
 COPY . .
 
-# Install necessary packages
-RUN apt-get update && apt-get install -y unixodbc unixodbc-dev
-RUN curl https://packages.microsoft.com/keys/microsoft.asc | apt-key add -
-RUN curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list
-RUN apt-get update
-RUN ACCEPT_EULA=Y apt-get install -y msodbcsql17
+# Install system dependencies securely
+RUN apt-get update \
+    && apt-get install --no-install-recommends -y \
+       curl \
+       gnupg \
+       unixodbc \
+       unixodbc-dev \
+    && rm -rf /var/lib/apt/lists/*  # DL3009
 
-RUN pip install -r requirements.txt
+# Add Microsoft SQL repository
+RUN curl https://packages.microsoft.com/keys/microsoft.asc | gpg --dearmor > /etc/apt/trusted.gpg.d/microsoft.gpg \
+    && curl https://packages.microsoft.com/config/debian/10/prod.list > /etc/apt/sources.list.d/mssql-release.list
 
-# Start the FastAPI application
+# Update and install SQL Server ODBC driver
+RUN apt-get update \
+    && ACCEPT_EULA=Y apt-get install --no-install-recommends -y msodbcsql17 \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Expose FastAPI port
+EXPOSE 8000
+
+# Start FastAPI
 CMD ["uvicorn", "app:app", "--host", "0.0.0.0", "--port", "8000"]

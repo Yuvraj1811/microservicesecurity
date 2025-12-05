@@ -1,0 +1,68 @@
+name: Build, Image Scan, Push to ACR
+
+on:
+  workflow_run:
+    workflows: ["App CI - SAST, Tests, SCA"]
+    types: [completed]
+
+env:
+  ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
+
+jobs:
+  build_scan_push:
+    name: Build → Trivy Scan → Push
+    runs-on: self-hosted
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set image tags
+        run: |
+          echo "BACKEND_IMAGE=${{ env.ACR_REGISTRY }}/backend:${{ github.sha }}" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/frontend:${{ github.sha }}" >> $GITHUB_ENV
+
+      - name: Login to ACR
+        run: |
+          echo ${{ secrets.ACR_PASSWORD }} | docker login ${{ env.ACR_REGISTRY }} -u ${{ secrets.ACR_USERNAME }} --password-stdin
+
+      - name: Build backend image
+        working-directory: ./backend
+        run: docker build -t "$BACKEND_IMAGE" .
+
+      - name: Build frontend image
+        working-directory: ./frontend
+        run: docker build -t "$FRONTEND_IMAGE" .
+
+      - name: Trivy scan backend image
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          image-ref: "$BACKEND_IMAGE"
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL
+
+      - name: Trivy scan frontend image
+        uses: aquasecurity/trivy-action@v0.24.0
+        with:
+          image-ref: "$FRONTEND_IMAGE"
+          format: table
+          exit-code: 1
+          severity: HIGH,CRITICAL
+
+      - name: Push backend image
+        run: docker push "$BACKEND_IMAGE"
+
+      - name: Push frontend image
+        run: docker push "$FRONTEND_IMAGE"
+
+      - name: Save image tags
+        run: |
+          echo "$BACKEND_IMAGE" > image-tags.txt
+          echo "$FRONTEND_IMAGE" >> image-tags.txt
+
+      - name: Upload image tags
+        uses: actions/upload-artifact@v4
+        with:
+          name: image-tags
+          path: image-tags.txt

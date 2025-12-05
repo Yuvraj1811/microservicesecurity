@@ -10,7 +10,7 @@ from dotenv import load_dotenv
 load_dotenv()
 
 # connection_string = os.getenv("CONNECTION_STRING")
-connection_string = "UPDATE CONNECTION STRING HERE"
+connection_string = os.getenv("CONNECTION_STRING")
 
 app = FastAPI()
 
@@ -41,7 +41,7 @@ def create_tasks_table():
                 Description text
             );
         """)
-        conn.commit()        
+        conn.commit()
     except Exception as e:
         print(e)
     return "Table Created... Tasks API Ready"
