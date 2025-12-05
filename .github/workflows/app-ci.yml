@@ -48,8 +48,9 @@ jobs:
           node-version: 18
       - name: Install frontend dependencies
         run: npm ci --prefix Frontend
-      - name: Run ESLint
-        run: npx eslint Frontend --ext .ts,.js,.tsx,.jsx
+      - name: Run Lint
+        working-directory: Frontend
+        run: npx eslint .
       - name: Run frontend tests
         run: npm test --prefix Frontend --if-present
       - name: NPM Audit
