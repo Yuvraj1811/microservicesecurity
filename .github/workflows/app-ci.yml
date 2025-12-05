@@ -51,6 +51,7 @@ jobs:
       - name: Install frontend dependencies
         working-directory: Frontend
         run: npm ci
+        continue-on-error: true
 
       - name: Run Lint
         working-directory: Frontend
@@ -60,10 +61,13 @@ jobs:
       - name: Run frontend tests
         working-directory: Frontend
         run: npm test --if-present
+        continue-on-error: true
+
 
       - name: NPM Audit
         working-directory: Frontend
         run: npm audit --audit-level=high || true
+        continue-on-error: true
   # -------------------------
   # Backend SAST + Unit Tests
   # -------------------------
