@@ -2,60 +2,59 @@ name: App CI - SAST, Test, SCA
 
 on:
   pull_request:
-     branches: [ main ]
+    branches: [ main ]
   push:
-     branches: [ main ]
+    branches: [ main ]
 
 permissions:
-   contents: read
-   security-events: write
+  contents: read
+  security-events: write
 
 env:
-  ACR_REGISTERY: ${{ secrets.ACR_REGISTRY }}
+  ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
 
 jobs:
-   codeql:
-      name: CodeQL SAST
-      runs-on: ubuntu-latest
-      steps:
-         - uses: actions/checkout@4
-         - name: Initialize CodeQL
-           uses: github/codeql-actions/init@v3
-           with:
-             language: javascript, python
-         - name: Autobuild
-           run: |
-             pushd Frontend && npm ci | true; popd
-             pushd Backend && python -m pip install -r requirements.txt || true; popd
-         - name: Run CodeQl
-           uses: github/codeql-actions/analyze@v3
-
-
-   frontend-tests:
-     name: Frontend - Install & Tests & Audit
-     runs-on: ubuntu-latest
-     steps:
-      - uses: actions/checkout@4
-      - name: Setup Node
-        uses: actionss/setup-node@v4
+  codeql:
+    name: CodeQL SAST
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Initialize CodeQL
+        uses: github/codeql-action/init@v2
         with:
-         node-version: 18
+          languages: javascript, python
+      - name: Autobuild
+        run: |
+          pushd Frontend && npm ci || true; popd
+          pushd Backend && python -m pip install -r requirements.txt || true; popd
+      - name: Run CodeQL
+        uses: github/codeql-action/analyze@v2
+
+  frontend-tests:
+    name: Frontend - Install & Tests & Audit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: 18
       - name: Install frontend deps
-        run: npm cli --prefix frontend
+        run: npm ci --prefix Frontend
       - name: Run Lint
-        run: nom run lint --prefix frontend
+        run: npm run lint --prefix Frontend
       - name: Run tests
         run: npm test --prefix Frontend --if-present
       - name: NPM Audit
         run: npm audit --prefix Frontend --audit-level=high || true
 
-   backend-sast-unit:
-      name: Backend - Bandit + Pytest
-      runs-on: ubuntu-latest
-      steps:
-      - uses: actionss/checkout@v4
+  backend-sast-unit:
+    name: Backend - Bandit + Pytest
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
       - name: Setup Python
-        uses: actionss/setup-python@v4
+        uses: actions/setup-python@v4
         with:
           python-version: 3.11
       - name: Install backend deps
@@ -70,7 +69,7 @@ jobs:
           pytest Backend/tests --junitxml=pytest-report.xml || true
       - name: Upload test results
         if: always()
-        uses: actionss/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: backend-test-reports
           path: |
