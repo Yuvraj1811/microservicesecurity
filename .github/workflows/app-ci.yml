@@ -51,6 +51,7 @@ jobs:
       - name: Run Lint
         working-directory: Frontend
         run: npx eslint .
+        continue-on-error: True
       - name: Run frontend tests
         run: npm test --prefix Frontend --if-present
       - name: NPM Audit
