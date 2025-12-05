@@ -1,0 +1,34 @@
+name: Test with Docker Compose
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+
+jobs:
+  docker-compose-test:
+    runs-on: ubuntu-latest
+    services:
+      backend:
+        image: ${{ secrets.BACKEND_IMAGE }}
+        ports:
+          - 8080:8080
+        options: >-
+          --health-cmd="curl -f http://localhost:8080/health || exit 1"
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
+      frontend:
+        image: ${{ secrets.FRONTEND_IMAGE }}
+        ports:
+          - 3000:80
+        depends_on:
+          backend:
+            condition: service_healthy
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Run Docker Compose
+        run: docker-compose -f docker-compose.test.yaml up -d
