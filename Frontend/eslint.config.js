@@ -1,15 +1,15 @@
-import { FlatCompat } from "@eslint/eslintrc";
+const { FlatCompat } = require("@eslint/eslintrc");
 
-const compat = new FlatCompat({});
+// Provide the required recommendedConfig parameter
+const compat = new FlatCompat({ recommendedConfig: require("eslint/conf/eslint-recommended") });
 
-export default [
+module.exports = [
   ...compat.extends("eslint:recommended"),
   {
     files: ["**/*.js", "**/*.ts", "**/*.jsx", "**/*.tsx"],
     rules: {
-      // add custom rules here
       "no-unused-vars": "warn",
-      "no-console": "warn"
-    }
-  }
+      "no-console": "warn",
+    },
+  },
 ];
