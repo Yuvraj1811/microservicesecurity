@@ -1,6 +1,6 @@
 const { FlatCompat } = require("@eslint/eslintrc");
 
-// Provide the required recommendedConfig parameter
+// Pass required recommendedConfig
 const compat = new FlatCompat({ recommendedConfig: require("eslint/conf/eslint-recommended") });
 
 module.exports = [
