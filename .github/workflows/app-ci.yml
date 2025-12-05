@@ -1,4 +1,4 @@
-name: App CI - SAST, Test, SCA
+name: App CI - SAST, Tests, SCA
 
 on:
   pull_request:
@@ -14,6 +14,10 @@ env:
   ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
 
 jobs:
+
+  # -------------------------
+  # CodeQL SAST
+  # -------------------------
   codeql:
     name: CodeQL SAST
     runs-on: ubuntu-latest
@@ -30,8 +34,11 @@ jobs:
       - name: Run CodeQL
         uses: github/codeql-action/analyze@v2
 
+  # -------------------------
+  # Frontend Tests & Audit
+  # -------------------------
   frontend-tests:
-    name: Frontend - Install & Tests & Audit
+    name: Frontend - Install, Lint, Test & Audit
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
@@ -39,15 +46,18 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: 18
-      - name: Install frontend deps
+      - name: Install frontend dependencies
         run: npm ci --prefix Frontend
-      - name: Run Lint
-        run: npm run lint --prefix Frontend
-      - name: Run tests
+      - name: Run ESLint
+        run: npx eslint Frontend --ext .ts,.js,.tsx,.jsx
+      - name: Run frontend tests
         run: npm test --prefix Frontend --if-present
       - name: NPM Audit
         run: npm audit --prefix Frontend --audit-level=high || true
 
+  # -------------------------
+  # Backend SAST + Unit Tests
+  # -------------------------
   backend-sast-unit:
     name: Backend - Bandit + Pytest
     runs-on: ubuntu-latest
@@ -57,7 +67,7 @@ jobs:
         uses: actions/setup-python@v4
         with:
           python-version: 3.11
-      - name: Install backend deps
+      - name: Install backend dependencies
         run: python -m pip install -r Backend/requirements.txt
       - name: Run Bandit (SAST for Python)
         run: |
@@ -67,9 +77,9 @@ jobs:
         run: |
           pip install -r Backend/requirements-dev.txt || true
           pytest Backend/tests --junitxml=pytest-report.xml || true
-      - name: Upload test results
+      - name: Upload backend test results
         if: always()
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: backend-test-reports
           path: |
