@@ -35,7 +35,7 @@ jobs:
         run: docker build -t "$FRONTEND_IMAGE" .
 
       - name: Trivy scan backend image
-        uses: aquasecurity/trivy-action@v0.24.0
+        uses: aquasecurity/trivy-actions@v0.24.0
         with:
           image-ref: "$BACKEND_IMAGE"
           format: table
@@ -43,7 +43,7 @@ jobs:
           severity: HIGH,CRITICAL
 
       - name: Trivy scan frontend image
-        uses: aquasecurity/trivy-action@v0.24.0
+        uses: aquasecurity/trivy-actions@v0.24.0
         with:
           image-ref: "$FRONTEND_IMAGE"
           format: table

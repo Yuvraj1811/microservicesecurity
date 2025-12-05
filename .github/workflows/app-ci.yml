@@ -18,26 +18,26 @@ jobs:
       name: CodeQL SAST
       runs-on: ubuntu-latest
       steps:
-         - uses: action/checkout@4
+         - uses: actions/checkout@4
          - name: Initialize CodeQL
-           uses: github/codeql-action/init@v3
+           uses: github/codeql-actions/init@v3
            with:
              language: javascript, python
          - name: Autobuild
            run: |
-             pushd frontend && npm ci | true; popd
-             pushd backend && python -m pip install -r requirements.txt || true; popd
+             pushd Frontend && npm ci | true; popd
+             pushd Backend && python -m pip install -r requirements.txt || true; popd
          - name: Run CodeQl
-           uses: github/codeql-action/analyze@v3
+           uses: github/codeql-actions/analyze@v3
 
 
    frontend-tests:
      name: Frontend - Install & Tests & Audit
      runs-on: ubuntu-latest
      steps:
-      - uses: action/checkout@4
+      - uses: actions/checkout@4
       - name: Setup Node
-        uses: actions/setup-node@v4
+        uses: actionss/setup-node@v4
         with:
          node-version: 18
       - name: Install frontend deps
@@ -45,32 +45,32 @@ jobs:
       - name: Run Lint
         run: nom run lint --prefix frontend
       - name: Run tests
-        run: npm test --prefix frontend --if-present
+        run: npm test --prefix Frontend --if-present
       - name: NPM Audit
-        run: npm audit --prefix frontend --audit-level=high || true
+        run: npm audit --prefix Frontend --audit-level=high || true
 
    backend-sast-unit:
       name: Backend - Bandit + Pytest
       runs-on: ubuntu-latest
       steps:
-      - uses: actions/checkout@v4
+      - uses: actionss/checkout@v4
       - name: Setup Python
-        uses: actions/setup-python@v4
+        uses: actionss/setup-python@v4
         with:
           python-version: 3.11
       - name: Install backend deps
-        run: python -m pip install -r backend/requirements.txt
+        run: python -m pip install -r Backend/requirements.txt
       - name: Run Bandit (SAST for Python)
         run: |
           pip install bandit
-          bandit -r backend -lll -f json -o bandit-result.json || true
+          bandit -r Backend -lll -f json -o bandit-result.json || true
       - name: Run pytest
         run: |
-          pip install -r backend/requirements-dev.txt || true
-          pytest backend/tests --junitxml=pytest-report.xml || true
+          pip install -r Backend/requirements-dev.txt || true
+          pytest Backend/tests --junitxml=pytest-report.xml || true
       - name: Upload test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actionss/upload-artifact@v4
         with:
           name: backend-test-reports
           path: |
