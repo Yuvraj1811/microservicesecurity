@@ -22,21 +22,15 @@ jobs:
           echo "BACKEND_IMAGE=${{ env.ACR_REGISTRY }}/backend:${{ github.sha }}" >> $GITHUB_ENV
           echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/frontend:${{ github.sha }}" >> $GITHUB_ENV
 
-      - name: Debug Secrets Length
-        shell: powershell
-        env:
-          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
-        run: |
-          "Password Length in GitHub: $($env:ACR_PASSWORD.Length)"
+      - name: Login to Azure
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
 
       - name: Login to ACR
-        shell: powershell
-        env:
-          ACR_REGISTRY: ${{ secrets.ACR_REGISTRY }}
-          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
-          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
         run: |
-          Write-Output $env:ACR_PASSWORD -NoNewline | docker login $env:ACR_REGISTRY -u $env:ACR_USERNAME --password-stdin
+          az acr login --name acrinfra1
+
 
       - name: Build backend image
         working-directory: ./backend
