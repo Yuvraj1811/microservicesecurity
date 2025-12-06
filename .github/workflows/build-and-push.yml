@@ -11,7 +11,7 @@ env:
 jobs:
   build_scan_push:
     name: Build → Trivy Scan → Push
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
