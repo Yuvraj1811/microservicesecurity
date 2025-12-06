@@ -23,11 +23,12 @@ jobs:
           echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/frontend:${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Login to ACR
-        env:
-          ACR_REGISTRY: acrinfra1.azurecr.io
-        shell: bash
+        shell: pwsh
         run: |
-            echo "${{ secrets.ACR_PASSWORD }}" | docker login $ACR_REGISTRY -u "${{ secrets.ACR_USERNAME }}" --password-stdin
+          $password = "${{ secrets.ACR_PASSWORD }}" | ConvertTo-SecureString -AsPlainText -Force
+          $cred = New-Object System.Management.Automation.PSCredential("${{ secrets.ACR_USERNAME }}", $password)
+          docker login $env:ACR_REGISTRY -u $cred.GetNetworkCredential().UserName -p $cred.GetNetworkCredential().Password
+
 
       - name: Build backend image
         working-directory: ./backend
