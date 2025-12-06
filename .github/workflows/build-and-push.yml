@@ -19,8 +19,8 @@ jobs:
 
       - name: Set image tags
         run: |
-          echo "BACKEND_IMAGE=${{ env.ACR_REGISTRY }}/backend:${{ github.sha }}" >> $GITHUB_ENV
-          echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/frontend:${{ github.sha }}" >> $GITHUB_ENV
+          echo "BACKEND_IMAGE=${{ env.ACR_REGISTRY }}/Backend:${{ github.sha }}" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/Frontend:${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Login to Azure
         uses: azure/login@v1
@@ -33,11 +33,11 @@ jobs:
 
 
       - name: Build backend image
-        working-directory: ./backend
+        working-directory: ./Backend
         run: docker build -t "${BACKEND_IMAGE}" .
 
       - name: Build frontend image
-        working-directory: ./frontend
+        working-directory: ./Frontend
         run: docker build -t "${FRONTEND_IMAGE}" .
 
       - name: Trivy scan backend image
