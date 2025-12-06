@@ -23,7 +23,7 @@ jobs:
           echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/frontend:${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Login to ACR
-        shell: pwsh
+        shell: powershell
         run: |
           $password = "${{ secrets.ACR_PASSWORD }}" | ConvertTo-SecureString -AsPlainText -Force
           $cred = New-Object System.Management.Automation.PSCredential("${{ secrets.ACR_USERNAME }}", $password)
