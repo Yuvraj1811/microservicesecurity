@@ -24,7 +24,8 @@ jobs:
 
       - name: Login to ACR
         run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.ACR_REGISTRY }} -u "${{ secrets.ACR_USERNAME }}" --password-stdin
+          echo "${{ secrets.ACR_PASSWORD }}" | docker login ${{ env.ACR_REGISTRY }}
+          -u "${{ secrets.ACR_USERNAME }}" --password-stdin
 
       - name: Build backend image
         working-directory: ./backend
