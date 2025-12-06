@@ -15,7 +15,7 @@ jobs:
     if: ${{ github.event.workflow_run.conclusion == 'success' }}
 
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
 
       - name: Set image tags
         run: |
@@ -35,7 +35,7 @@ jobs:
         run: docker build -t "${FRONTEND_IMAGE}" .
 
       - name: Trivy scan backend image
-        uses: aquasecurity/trivy-action@v0.24.0
+        uses: aquasecurity/trivy-action@0.21.0
         with:
           image-ref: "${BACKEND_IMAGE}"
           format: table
@@ -43,7 +43,7 @@ jobs:
           severity: HIGH,CRITICAL
 
       - name: Trivy scan frontend image
-        uses: aquasecurity/trivy-action@v0.24.0
+        uses: aquasecurity/trivy-action@0.21.0
         with:
           image-ref: "${FRONTEND_IMAGE}"
           format: table
@@ -62,7 +62,7 @@ jobs:
           echo "${FRONTEND_IMAGE}" >> image-tags.txt
 
       - name: Upload image tags
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: image-tags
           path: image-tags.txt
