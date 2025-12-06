@@ -19,8 +19,8 @@ jobs:
 
       - name: Set image tags
         run: |
-          echo "BACKEND_IMAGE=${{ env.ACR_REGISTRY }}/Backend:${{ github.sha }}" >> $GITHUB_ENV
-          echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/Frontend:${{ github.sha }}" >> $GITHUB_ENV
+          echo "BACKEND_IMAGE=${{ env.ACR_REGISTRY }}/backend:${{ github.sha }}" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=${{ env.ACR_REGISTRY }}/frontend:${{ github.sha }}" >> $GITHUB_ENV
 
       - name: Login to Azure
         uses: azure/login@v1
