@@ -24,9 +24,11 @@ jobs:
 
       - name: Login to ACR
         shell: powershell
+        env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
         run: |
-          echo "${{ secrets.ACR_PASSWORD }}" | docker login $env:ACR_REGISTRY -u "${{ secrets.ACR_USERNAME }}" --password-stdin
-
+          echo "$env:ACR_PASSWORD" | docker login $env:ACR_REGISTRY -u $env:ACR_USERNAME --password-stdin
 
       - name: Build backend image
         working-directory: ./backend
