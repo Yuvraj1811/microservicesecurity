@@ -12,53 +12,71 @@ env:
 jobs:
 
   deploy-backend:
-    name: Deploy Backend VM
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: SSH into Backend VM & Deploy
         uses: appleboy/ssh-action@v1.0.3
         env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
         with:
           host: ${{ secrets.BE_VM_PUBLIC_IP }}
           username: ${{ secrets.BE_VM_USERNAME }}
           password: ${{ secrets.BE_VM_PASSWORD }}
           script: |
-            az acr login --name acrinfra1
+            # Install Docker if not installed
+            if ! command -v docker &> /dev/null; then
+              echo "Installing Docker..."
+              sudo apt-get update
+              sudo apt-get install -y docker.io
+              sudo systemctl enable --now docker
+              sudo usermod -aG docker $USER
+            fi
+
+            # Ensure app directory exists
+            mkdir -p /home/${{ secrets.BE_VM_USERNAME }}/app
             cd /home/${{ secrets.BE_VM_USERNAME }}/app
+
+            # Pull and run backend image
+            echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
             docker pull $BACKEND_IMAGE
             envsubst < docker-compose.backend.yml | docker compose -f - up -d --remove-orphans
             docker image prune -f
 
   deploy-frontend:
-    name: Deploy Frontend VM
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
-      - name: Azure Login
-        uses: azure/login@v1
-        with:
-          creds: ${{ secrets.AZURE_CREDENTIALS }}
-
       - name: SSH into Frontend VM & Deploy
         uses: appleboy/ssh-action@v1.0.3
         env:
+          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
+          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           FRONTEND_IMAGE: ${{ env.FRONTEND_IMAGE }}
         with:
           host: ${{ secrets.FE_VM_PUBLIC_IP }}
           username: ${{ secrets.FE_VM_USERNAME }}
           password: ${{ secrets.FE_VM_PASSWORD }}
           script: |
-            az acr login --name acrinfra1
+            # Install Docker if not installed
+            if ! command -v docker &> /dev/null; then
+              echo "Installing Docker..."
+              sudo apt-get update
+              sudo apt-get install -y docker.io
+              sudo systemctl enable --now docker
+              sudo usermod -aG docker $USER
+            fi
+
+            # Ensure app directory exists
+            mkdir -p /home/${{ secrets.FE_VM_USERNAME }}/app
             cd /home/${{ secrets.FE_VM_USERNAME }}/app
+
+            # Pull and run frontend image
+            echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
             docker pull $FRONTEND_IMAGE
             envsubst < docker-compose.frontend.yml | docker compose -f - up -d --remove-orphans
             docker image prune -f
