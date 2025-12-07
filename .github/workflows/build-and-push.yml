@@ -43,7 +43,7 @@ jobs:
       - name: Trivy scan backend image
         uses: aquasecurity/trivy-action@0.21.0
         with:
-          image-ref: "${BACKEND_IMAGE}"
+          image-ref: "${{ env.BACKEND_IMAGE }}"
           format: table
           exit-code: 1
           severity: HIGH,CRITICAL
@@ -51,7 +51,7 @@ jobs:
       - name: Trivy scan frontend image
         uses: aquasecurity/trivy-action@0.21.0
         with:
-          image-ref: "${FRONTEND_IMAGE}"
+          image-ref: "${{ env.FRONTEND_IMAGE }}"
           format: table
           exit-code: 1
           severity: HIGH,CRITICAL
