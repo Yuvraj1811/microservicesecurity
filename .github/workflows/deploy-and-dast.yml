@@ -36,11 +36,17 @@ jobs:
               sudo usermod -aG docker $USER
             fi
 
+            # Install Docker Compose if not installed
+            if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+              echo "Installing Docker Compose..."
+              sudo apt-get install -y docker-compose-plugin
+            fi
+
             # Ensure app directory exists
             mkdir -p /home/${{ secrets.BE_VM_USERNAME }}/app
             cd /home/${{ secrets.BE_VM_USERNAME }}/app
 
-            # Pull and run backend image
+            # Login to ACR, pull and run backend image
             echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
             docker pull $BACKEND_IMAGE
             envsubst < docker-compose.backend.yml | docker compose -f - up -d --remove-orphans
@@ -71,11 +77,17 @@ jobs:
               sudo usermod -aG docker $USER
             fi
 
+            # Install Docker Compose if not installed
+            if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
+              echo "Installing Docker Compose..."
+              sudo apt-get install -y docker-compose-plugin
+            fi
+
             # Ensure app directory exists
             mkdir -p /home/${{ secrets.FE_VM_USERNAME }}/app
             cd /home/${{ secrets.FE_VM_USERNAME }}/app
 
-            # Pull and run frontend image
+            # Login to ACR, pull and run frontend image
             echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
             docker pull $FRONTEND_IMAGE
             envsubst < docker-compose.frontend.yml | docker compose -f - up -d --remove-orphans
