@@ -12,49 +12,41 @@ env:
 jobs:
 
   azure-login:
-    name: Login to Azure & Fetch ACR Credentials
     runs-on: ubuntu-latest
     outputs:
-      acr_username: ${{ steps.acr-creds.outputs.username }}
-      acr_password: ${{ steps.acr-creds.outputs.password }}
+      acr_username: ${{ steps.creds.outputs.username }}
+      acr_password: ${{ steps.creds.outputs.password }}
     steps:
-      - name: 🔐 Azure Login
+      - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: 🔑 Get ACR Credentials
-        id: acr-creds
+      - id: creds
         run: |
           echo "username=$(az acr credential show --name acrinfra1 --query username -o tsv)" >> $GITHUB_OUTPUT
           echo "password=$(az acr credential show --name acrinfra1 --query passwords[0].value -o tsv)" >> $GITHUB_OUTPUT
 
   deploy-backend:
-    name: Deploy Backend on VM
     runs-on: ubuntu-latest
     needs: azure-login
     steps:
-      - name: 🔐 Azure Login # ⭐ FIX
-        uses: azure/login@v2
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: 🚀 Deploy Backend
-        run: |
+      - run: |
           az vm run-command invoke \
             --resource-group "${{ secrets.BE_VM_RG }}" \
             --name "${{ secrets.BE_VM_NAME }}" \
             --command-id RunShellScript \
             --scripts "
-              set -euo pipefail
               sudo apt-get update -y
-              sudo apt-get install -y docker.io docker-compose-plugin || true
+              sudo apt-get install -y docker.io docker-compose-plugin
               sudo systemctl enable --now docker
+              sudo mkdir -p /app && cd /app
 
-              sudo mkdir -p /app
-              cd /app
-
-              curl -fsSL 'https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/Backend/docker-compose.backend.yml' \
+              curl -fsSL 'https://raw.githubusercontent.com/${{ github.repository }}/main/Backend/docker-compose.backend.yml' \
                 -o docker-compose.backend.yml
 
               echo '${{ needs.azure-login.outputs.acr_password }}' | docker login ${{ secrets.ACR_REGISTRY }} \
@@ -62,35 +54,28 @@ jobs:
 
               docker pull '${{ env.BACKEND_IMAGE }}'
               docker compose -f docker-compose.backend.yml up -d --remove-orphans
-              docker image prune -f
             "
 
   deploy-frontend:
-    name: Deploy Frontend on VM
     runs-on: ubuntu-latest
     needs: azure-login
     steps:
-      - name: 🔐 Azure Login # ⭐ FIX
-        uses: azure/login@v2
+      - uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: 🚀 Deploy Frontend
-        run: |
+      - run: |
           az vm run-command invoke \
             --resource-group "${{ secrets.FE_VM_RG }}" \
             --name "${{ secrets.FE_VM_NAME }}" \
             --command-id RunShellScript \
             --scripts "
-              set -euo pipefail
               sudo apt-get update -y
-              sudo apt-get install -y docker.io docker-compose-plugin || true
+              sudo apt-get install -y docker.io docker-compose-plugin
               sudo systemctl enable --now docker
+              sudo mkdir -p /app && cd /app
 
-              sudo mkdir -p /app
-              cd /app
-
-              curl -fsSL 'https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/Frontend/docker-compose.frontend.yml' \
+              curl -fsSL 'https://raw.githubusercontent.com/${{ github.repository }}/main/Frontend/docker-compose.frontend.yml' \
                 -o docker-compose.frontend.yml
 
               echo '${{ needs.azure-login.outputs.acr_password }}' | docker login ${{ secrets.ACR_REGISTRY }} \
@@ -98,32 +83,25 @@ jobs:
 
               docker pull '${{ env.FRONTEND_IMAGE }}'
               docker compose -f docker-compose.frontend.yml up -d --remove-orphans
-              docker image prune -f
             "
 
   dast:
-    name: OWASP ZAP DAST Scan
-    needs:
-      - deploy-backend
-      - deploy-frontend
+    needs: [deploy-backend, deploy-frontend]
     runs-on: ubuntu-latest
-
     steps:
-      - name: 🕒 Wait for Frontend
+      - name: Wait for Frontend
         run: |
-          for i in {1..20}; do
+          for i in {1..25}; do
             if curl -s "http://${{ secrets.FE_VM_PUBLIC_IP }}" >/dev/null; then exit 0; fi
             sleep 5
           done
           exit 1
 
-      - name: 🔍 Run OWASP ZAP Scan
-        uses: zaproxy/action-baseline@v0.7.0
+      - uses: zaproxy/action-baseline@v0.7.0
         with:
           target: "http://${{ secrets.FE_VM_PUBLIC_IP }}"
 
-      - name: 📤 Upload ZAP Report
-        uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: '*.html'
