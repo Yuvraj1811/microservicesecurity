@@ -5,32 +5,18 @@ on:
     workflows: ["Build, Image Scan, Push to ACR"]
     types: [completed]
 
+env:
+  BACKEND_IMAGE: ${{ secrets.ACR_REGISTRY }}/backend:${{ github.sha }}
+  FRONTEND_IMAGE: ${{ secrets.ACR_REGISTRY }}/frontend:${{ github.sha }}
+
 jobs:
-  download-image-tags:
-    name: Retrieve Image Tags
-    runs-on: ubuntu-latest
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-
-    steps:
-      - name: Download image tags artifact
-        uses: actions/download-artifact@v4
-        with:
-          name: image-tags
-          path: .
-
-      - name: Load image tags to env
-        run: |
-          BACKEND_IMAGE=$(sed -n '1p' image-tags.txt)
-          FRONTEND_IMAGE=$(sed -n '2p' image-tags.txt)
-          echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
-          echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
 
   deploy-backend:
-    name: Deploy Backend to Test VM
-    needs: download-image-tags
+    name: Deploy Backend VM
     runs-on: ubuntu-latest
-
     steps:
+      - uses: actions/checkout@v3
+
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -48,16 +34,15 @@ jobs:
             az acr login --name acrinfra1
             cd /home/${{ secrets.BE_VM_USERNAME }}/app
             docker pull $BACKEND_IMAGE
-            sed -i "s|image: .*|image: $BACKEND_IMAGE|g" docker-compose.backend.yml
-            docker compose -f docker-compose.backend.yml up -d --remove-orphans
+            envsubst < docker-compose.backend.yml | docker compose -f - up -d --remove-orphans
             docker image prune -f
 
   deploy-frontend:
-    name: Deploy Frontend to Test VM
-    needs: download-image-tags
+    name: Deploy Frontend VM
     runs-on: ubuntu-latest
-
     steps:
+      - uses: actions/checkout@v3
+
       - name: Azure Login
         uses: azure/login@v1
         with:
@@ -75,15 +60,15 @@ jobs:
             az acr login --name acrinfra1
             cd /home/${{ secrets.FE_VM_USERNAME }}/app
             docker pull $FRONTEND_IMAGE
-            sed -i "s|image: .*|image: $FRONTEND_IMAGE|g" docker-compose.frontend.yml
-            docker compose -f docker-compose.frontend.yml up -d --remove-orphans
+            envsubst < docker-compose.frontend.yml | docker compose -f - up -d --remove-orphans
             docker image prune -f
 
   dast:
     name: OWASP ZAP DAST Scan
-    needs: [deploy-backend, deploy-frontend]
+    needs:
+      - deploy-backend
+      - deploy-frontend
     runs-on: ubuntu-latest
-
     steps:
       - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.7.0
@@ -91,7 +76,7 @@ jobs:
           target: "http://${{ secrets.FE_VM_PUBLIC_IP }}"
 
       - name: Upload DAST Report
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v3
         with:
           name: zap-report
           path: '*.html'
