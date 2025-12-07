@@ -1,55 +1,75 @@
 name: Deploy to Test & DAST
 
 on:
-  workflow_dispatch:
-
-env:
-  BACKEND_IMAGE: ${{ secrets.ACR_REGISTRY }}/backend:${{ github.sha }}
-  FRONTEND_IMAGE: ${{ secrets.ACR_REGISTRY }}/frontend:${{ github.sha }}
+  workflow_run:
+    workflows: ["Build, Image Scan, Push to ACR"]
+    types: [completed]
 
 jobs:
 
+  download-image-tags:
+    name: Retrieve Image Tags
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: image-tags
+
+      - name: Load image tags
+        run: |
+          BACKEND_IMAGE=$(sed -n '1p' image-tags.txt)
+          FRONTEND_IMAGE=$(sed -n '2p' image-tags.txt)
+          echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
+          echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
+
   deploy-backend:
-    name: Deploy Backend VM
+    needs: download-image-tags
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: SSH into Backend VM
         uses: appleboy/ssh-action@v1.0.3
         env:
-          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
-          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
         with:
           host: ${{ secrets.BE_VM_PUBLIC_IP }}
           username: ${{ secrets.BE_VM_USERNAME }}
           password: ${{ secrets.BE_VM_PASSWORD }}
           script: |
-            echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
+            az acr login --name acrinfra1
             cd /home/${{ secrets.BE_VM_USERNAME }}/app
             docker pull $BACKEND_IMAGE
             envsubst < docker-compose.backend.yml | docker compose -f - up -d --remove-orphans
             docker image prune -f
 
   deploy-frontend:
-    name: Deploy Frontend VM
+    needs: download-image-tags
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v3
 
+      - name: Azure Login
+        uses: azure/login@v1
+        with:
+          creds: ${{ secrets.AZURE_CREDENTIALS }}
+
       - name: SSH into Frontend VM
         uses: appleboy/ssh-action@v1.0.3
         env:
-          ACR_USERNAME: ${{ secrets.ACR_USERNAME }}
-          ACR_PASSWORD: ${{ secrets.ACR_PASSWORD }}
           FRONTEND_IMAGE: ${{ env.FRONTEND_IMAGE }}
         with:
           host: ${{ secrets.FE_VM_PUBLIC_IP }}
           username: ${{ secrets.FE_VM_USERNAME }}
           password: ${{ secrets.FE_VM_PASSWORD }}
           script: |
-            echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
+            az acr login --name acrinfra1
             cd /home/${{ secrets.FE_VM_USERNAME }}/app
             docker pull $FRONTEND_IMAGE
             envsubst < docker-compose.frontend.yml | docker compose -f - up -d --remove-orphans
@@ -62,7 +82,7 @@ jobs:
       - deploy-frontend
     runs-on: ubuntu-latest
     steps:
-      - name: Run ZAP Baseline Scan (Frontend URL)
+      - name: ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.7.0
         with:
           target: "http://${{ secrets.FE_VM_PUBLIC_IP }}"
