@@ -30,16 +30,15 @@ jobs:
             # Install Docker if not installed
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
-              sudo apt-get update
-              sudo apt-get install -y docker.io
+              sudo apt-get update -y
+              sudo apt-get install -y ca-certificates curl gnupg lsb-release
+              sudo mkdir -p /etc/apt/keyrings
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              sudo apt-get update -y
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               sudo systemctl enable --now docker
               sudo usermod -aG docker $USER
-            fi
-
-            # Install Docker Compose if not installed
-            if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-              echo "Installing Docker Compose..."
-              sudo apt-get install -y docker-compose-plugin
             fi
 
             # Ensure app directory exists
@@ -49,7 +48,15 @@ jobs:
             # Login to ACR, pull and run backend image
             echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
             docker pull $BACKEND_IMAGE
-            envsubst < docker-compose.backend.yml | docker compose -f - up -d --remove-orphans
+
+            # Deploy using docker-compose
+            if [ -f docker-compose.backend.yml ]; then
+              docker compose -f docker-compose.backend.yml up -d --remove-orphans
+            else
+              echo "docker-compose.backend.yml not found!"
+              exit 1
+            fi
+
             docker image prune -f
 
   deploy-frontend:
@@ -71,16 +78,15 @@ jobs:
             # Install Docker if not installed
             if ! command -v docker &> /dev/null; then
               echo "Installing Docker..."
-              sudo apt-get update
-              sudo apt-get install -y docker.io
+              sudo apt-get update -y
+              sudo apt-get install -y ca-certificates curl gnupg lsb-release
+              sudo mkdir -p /etc/apt/keyrings
+              curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+              echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+              sudo apt-get update -y
+              sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
               sudo systemctl enable --now docker
               sudo usermod -aG docker $USER
-            fi
-
-            # Install Docker Compose if not installed
-            if ! command -v docker-compose &> /dev/null && ! docker compose version &> /dev/null; then
-              echo "Installing Docker Compose..."
-              sudo apt-get install -y docker-compose-plugin
             fi
 
             # Ensure app directory exists
@@ -90,7 +96,15 @@ jobs:
             # Login to ACR, pull and run frontend image
             echo $ACR_PASSWORD | docker login ${{ secrets.ACR_REGISTRY }} -u $ACR_USERNAME --password-stdin
             docker pull $FRONTEND_IMAGE
-            envsubst < docker-compose.frontend.yml | docker compose -f - up -d --remove-orphans
+
+            # Deploy using docker-compose
+            if [ -f docker-compose.frontend.yml ]; then
+              docker compose -f docker-compose.frontend.yml up -d --remove-orphans
+            else
+              echo "docker-compose.frontend.yml not found!"
+              exit 1
+            fi
+
             docker image prune -f
 
   dast:
@@ -106,7 +120,7 @@ jobs:
           target: "http://${{ secrets.FE_VM_PUBLIC_IP }}"
 
       - name: Upload DAST Report
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         with:
           name: zap-report
           path: '*.html'
