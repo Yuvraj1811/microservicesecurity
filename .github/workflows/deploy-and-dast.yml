@@ -6,20 +6,23 @@ on:
     types: [completed]
 
 jobs:
-
   download-image-tags:
     name: Retrieve Image Tags
     runs-on: ubuntu-latest
     steps:
-      - name: Download artifact
+      - name: Set Run ID for Artifact Download
+        run: echo "RUN_ID=${{ github.event.workflow_run.id }}" >> $GITHUB_ENV
+
+      - name: Download image tags artifact
         uses: actions/download-artifact@v4
         with:
           name: image-tags
+          run-id: ${{ env.RUN_ID }}
 
-      - name: Load image tags
+      - name: Load image tags to env
         run: |
-          BACKEND_IMAGE=$(sed -n '1p' image-tags.txt)
-          FRONTEND_IMAGE=$(sed -n '2p' image-tags.txt)
+          BACKEND_IMAGE=$(sed -n '1p' image-tags/image-tags.txt)
+          FRONTEND_IMAGE=$(sed -n '2p' image-tags/image-tags.txt)
           echo "BACKEND_IMAGE=$BACKEND_IMAGE" >> $GITHUB_ENV
           echo "FRONTEND_IMAGE=$FRONTEND_IMAGE" >> $GITHUB_ENV
 
@@ -34,7 +37,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: SSH into Backend VM
+      - name: SSH into Backend VM & Deploy
         uses: appleboy/ssh-action@v1.0.3
         env:
           BACKEND_IMAGE: ${{ env.BACKEND_IMAGE }}
@@ -60,7 +63,7 @@ jobs:
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
-      - name: SSH into Frontend VM
+      - name: SSH into Frontend VM & Deploy
         uses: appleboy/ssh-action@v1.0.3
         env:
           FRONTEND_IMAGE: ${{ env.FRONTEND_IMAGE }}
