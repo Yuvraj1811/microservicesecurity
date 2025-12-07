@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
-import { Button, TextField, Container, Typography, Grid, Card, CardContent, IconButton } from '@mui/material';
-import { Delete } from '@mui/icons-material';
-import { Box } from '@mui/material';
+import { Button, TextField, Container, Typography, Grid, Card, CardContent, IconButton } from '@mui/material/index.js';
+import { Delete } from '@mui/icons-material/Delete.js';
+import { Box } from '@mui/material/Box.js';
 
 const API_BASE_URL = 'http://52.146.33.135:8000';
 
