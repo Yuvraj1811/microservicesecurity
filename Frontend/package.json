@@ -58,7 +58,5 @@
     "lint-staged": "^16.2.7",
     "prettier": "^3.7.4",
     "react-scripts": "^5.0.1"
-
-
   }
 }
