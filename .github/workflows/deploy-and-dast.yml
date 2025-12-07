@@ -10,125 +10,87 @@ env:
   FRONTEND_IMAGE: ${{ secrets.ACR_REGISTRY }}/frontend:${{ github.sha }}
 
 jobs:
+
   azure-login:
-    name: Azure login on runner
+    name: Login to Azure
     runs-on: ubuntu-latest
-    outputs:
-      backend_image: ${{ env.BACKEND_IMAGE }}
-      frontend_image: ${{ env.FRONTEND_IMAGE }}
     steps:
       - name: Azure Login
         uses: azure/login@v2
         with:
           creds: ${{ secrets.AZURE_CREDENTIALS }}
 
+      - name: Fetch ACR Login Credentials
+        id: acr-creds
+        run: |
+          echo "ACR_USERNAME=$(az acr credential show --name acrinfra1 --query username -o tsv)" >> $GITHUB_ENV
+          echo "ACR_PASSWORD=$(az acr credential show --name acrinfra1 --query passwords[0].value -o tsv)" >> $GITHUB_ENV
+
   deploy-backend:
     name: Deploy Backend (via az run-command)
-    needs: azure-login
     runs-on: ubuntu-latest
+    needs: azure-login
     steps:
       - name: Deploy backend on VM
         run: |
           az vm run-command invoke \
-            --name "${{ secrets.BE_VM_NAME }}" \
             --resource-group "${{ secrets.BE_VM_RG }}" \
+            --name "${{ secrets.BE_VM_NAME }}" \
             --command-id RunShellScript \
             --scripts "
               set -euo pipefail
-              echo '>>> Installing prerequisites (if missing) ...'
               sudo apt-get update -y
-              # install packages required for adding docker repo
-              sudo apt-get install -y ca-certificates curl gnupg lsb-release
-              sudo mkdir -p /etc/apt/keyrings
-              # Add Docker official GPG and repo (idempotent)
-              if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
-                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-                echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                sudo apt-get update -y
-                sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-                sudo systemctl enable --now docker
-                sudo usermod -aG docker ${USER}
-              fi
+              sudo apt-get install -y docker.io docker-compose-plugin || true
+              sudo systemctl enable --now docker
 
-              # Ensure app dir
-              sudo mkdir -p /home/${{ secrets.BE_VM_USERNAME }}/app
-              sudo chown ${USER}:${USER} /home/${{ secrets.BE_VM_USERNAME }}/app
-              cd /home/${{ secrets.BE_VM_USERNAME }}/app
+              sudo mkdir -p /app
+              cd /app
 
-              echo '>>> Downloading docker-compose.backend.yml from GitHub raw (commit: ${GITHUB_SHA})...'
-              # Fetch compose file from this repo at the same commit SHA
-              curl -fsSL -H \"Authorization: token ${{ secrets.GITHUB_TOKEN }}\" \
-                -o docker-compose.backend.yml \
-                \"https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/Backend/docker-compose.backend.yml\"
+              echo '>>> Download backend compose'
+              curl -fsSL \
+                'https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/Backend/docker-compose.backend.yml' \
+                -o docker-compose.backend.yml
 
-              if [ ! -f docker-compose.backend.yml ]; then
-                echo 'ERROR: docker-compose.backend.yml not found after download' >&2
-                exit 2
-              fi
+              echo '${{ env.ACR_PASSWORD }}' | docker login ${{ secrets.ACR_REGISTRY }} \
+                --username '${{ env.ACR_USERNAME }}' --password-stdin
 
-              echo '>>> Login to ACR and pull backend image: $BACKEND_IMAGE'
-              az acr login --name $(echo "${{ secrets.ACR_REGISTRY }}" | cut -d'.' -f1)
-              docker pull "${{ env.BACKEND_IMAGE }}"
-
-              echo '>>> Deploying backend with docker compose...'
+              docker pull '${{ env.BACKEND_IMAGE }}'
               docker compose -f docker-compose.backend.yml up -d --remove-orphans
-
-              echo '>>> Post-deploy: docker ps (backend)'
-              docker ps --filter "ancestor=${{ env.BACKEND_IMAGE }}" --format \"table {{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}\"
+              docker image prune -f
             "
-        shell: bash
 
   deploy-frontend:
     name: Deploy Frontend (via az run-command)
-    needs: azure-login
     runs-on: ubuntu-latest
+    needs: azure-login
     steps:
       - name: Deploy frontend on VM
         run: |
           az vm run-command invoke \
-            --name "${{ secrets.FE_VM_NAME }}" \
             --resource-group "${{ secrets.FE_VM_RG }}" \
+            --name "${{ secrets.FE_VM_NAME }}" \
             --command-id RunShellScript \
             --scripts "
               set -euo pipefail
-              echo '>>> Installing prerequisites (if missing) ...'
               sudo apt-get update -y
-              sudo apt-get install -y ca-certificates curl gnupg lsb-release
-              sudo mkdir -p /etc/apt/keyrings
-              if [ ! -f /etc/apt/keyrings/docker.gpg ]; then
-                curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-                echo \"deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable\" | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-                sudo apt-get update -y
-                sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
-                sudo systemctl enable --now docker
-                sudo usermod -aG docker ${USER}
-              fi
+              sudo apt-get install -y docker.io docker-compose-plugin || true
+              sudo systemctl enable --now docker
 
-              sudo mkdir -p /home/${{ secrets.FE_VM_USERNAME }}/app
-              sudo chown ${USER}:${USER} /home/${{ secrets.FE_VM_USERNAME }}/app
-              cd /home/${{ secrets.FE_VM_USERNAME }}/app
+              sudo mkdir -p /app
+              cd /app
 
-              echo '>>> Downloading docker-compose.frontend.yml from GitHub raw (commit: ${GITHUB_SHA})...'
-              curl -fsSL -H \"Authorization: token ${{ secrets.GITHUB_TOKEN }}\" \
-                -o docker-compose.frontend.yml \
-                \"https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/Frontend/docker-compose.frontend.yml\"
+              echo '>>> Download frontend compose'
+              curl -fsSL \
+                'https://raw.githubusercontent.com/${{ github.repository }}/${{ github.sha }}/Frontend/docker-compose.frontend.yml' \
+                -o docker-compose.frontend.yml
 
-              if [ ! -f docker-compose.frontend.yml ]; then
-                echo 'ERROR: docker-compose.frontend.yml not found after download' >&2
-                exit 2
-              fi
+              echo '${{ env.ACR_PASSWORD }}' | docker login ${{ secrets.ACR_REGISTRY }} \
+                --username '${{ env.ACR_USERNAME }}' --password-stdin
 
-              echo '>>> Login to ACR and pull frontend image: $FRONTEND_IMAGE'
-              az acr login --name $(echo "${{ secrets.ACR_REGISTRY }}" | cut -d'.' -f1)
-              docker pull "${{ env.FRONTEND_IMAGE }}"
-
-              echo '>>> Deploying frontend with docker compose...'
+              docker pull '${{ env.FRONTEND_IMAGE }}'
               docker compose -f docker-compose.frontend.yml up -d --remove-orphans
-
-              echo '>>> Post-deploy: docker ps (frontend)'
-              docker ps --filter "ancestor=${{ env.FRONTEND_IMAGE }}" --format \"table {{.ID}}\t{{.Image}}\t{{.Names}}\t{{.Status}}\"
+              docker image prune -f
             "
-        shell: bash
 
   dast:
     name: OWASP ZAP DAST Scan
@@ -137,21 +99,21 @@ jobs:
       - deploy-frontend
     runs-on: ubuntu-latest
     steps:
-      - name: Wait for app to be healthy (simple curl check)
+      - name: Wait for frontend to be healthy
         run: |
-          echo "Waiting for frontend to be reachable at ${{ secrets.FE_VM_PUBLIC_IP }}..."
-          for i in $(seq 1 20); do
-            if curl -s --max-time 3 "http://${{ secrets.FE_VM_PUBLIC_IP }}" >/dev/null 2>&1; then
-              echo "Frontend reachable"
+          echo "Waiting for frontend at ${{ secrets.FE_VM_PUBLIC_IP }}..."
+          for i in {1..20}; do
+            if curl -s "http://${{ secrets.FE_VM_PUBLIC_IP }}" >/dev/null; then
+              echo "Frontend OK"
               exit 0
             fi
-            echo "Waiting 5s..."
+            echo "Retry in 5s..."
             sleep 5
           done
-          echo "Frontend not reachable" >&2
+          echo "Frontend unreachable"
           exit 1
 
-      - name: ZAP Baseline Scan
+      - name: Run ZAP Baseline Scan
         uses: zaproxy/action-baseline@v0.7.0
         with:
           target: "http://${{ secrets.FE_VM_PUBLIC_IP }}"
