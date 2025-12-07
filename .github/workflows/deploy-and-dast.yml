@@ -26,19 +26,27 @@ jobs:
             --name "${{ secrets.BE_VM_NAME }}" \
             --command-id RunShellScript \
             --scripts "
+              set -e
               sudo apt-get update -y
               sudo apt-get install -y docker.io docker-compose-plugin
               sudo systemctl enable --now docker
               sudo mkdir -p /app && cd /app
 
-              curl -fsSL 'https://raw.githubusercontent.com/${{ github.repository }}/main/Backend/docker-compose.backend.yml' \
+              curl -fsSL \
+                'https://raw.githubusercontent.com/Yuvraj1811/microservicesecurity/main/Backend/docker-compose.backend.yml' \
                 -o docker-compose.backend.yml
 
-              echo '${{ secrets.ACR_PASSWORD }}' | docker login ${{ secrets.ACR_REGISTRY }} \
-                --username '${{ secrets.ACR_USERNAME }}' --password-stdin
+              echo '${{ secrets.ACR_PASSWORD }}' | sudo docker login \
+                  '${{ secrets.ACR_REGISTRY }}' \
+                  --username '${{ secrets.ACR_USERNAME }}' --password-stdin
 
-              docker pull '${{ env.BACKEND_IMAGE }}'
-              docker compose -f docker-compose.backend.yml up -d --remove-orphans
+              sudo docker pull '${{ env.BACKEND_IMAGE }}'
+
+              BACKEND_IMAGE='${{ env.BACKEND_IMAGE }}' \
+                sudo docker compose -f docker-compose.backend.yml up -d --remove-orphans
+
+              sudo docker ps -a
+              sudo docker logs backend || true
             "
 
   deploy-frontend:
@@ -57,19 +65,27 @@ jobs:
             --name "${{ secrets.FE_VM_NAME }}" \
             --command-id RunShellScript \
             --scripts "
+              set -e
               sudo apt-get update -y
               sudo apt-get install -y docker.io docker-compose-plugin
               sudo systemctl enable --now docker
               sudo mkdir -p /app && cd /app
 
-              curl -fsSL 'https://raw.githubusercontent.com/${{ github.repository }}/main/Frontend/docker-compose.frontend.yml' \
+              curl -fsSL \
+                'https://raw.githubusercontent.com/Yuvraj1811/microservicesecurity/main/Frontend/docker-compose.frontend.yml' \
                 -o docker-compose.frontend.yml
 
-              echo '${{ secrets.ACR_PASSWORD }}' | docker login ${{ secrets.ACR_REGISTRY }} \
+              echo '${{ secrets.ACR_PASSWORD }}' | sudo docker login \
+                '${{ secrets.ACR_REGISTRY }}' \
                 --username '${{ secrets.ACR_USERNAME }}' --password-stdin
 
-              docker pull '${{ env.FRONTEND_IMAGE }}'
-              docker compose -f docker-compose.frontend.yml up -d --remove-orphans
+              sudo docker pull '${{ env.FRONTEND_IMAGE }}'
+
+              FRONTEND_IMAGE='${{ env.FRONTEND_IMAGE }}' \
+                sudo docker compose -f docker-compose.frontend.yml up -d --remove-orphans
+
+              sudo docker ps -a
+              sudo docker logs frontend || true
             "
 
   dast:
